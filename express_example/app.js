@@ -31,7 +31,54 @@ if ('development' == app.get('env')) {
 // app.get('/', routes.index);
 // app.get('/users', user.list);
 
-http.createServer(app).listen(app.get('port'), function(){
+var server = http.createServer(app).listen(app.get('port'), function(){
   console.log('Express server listening on port ' + app.get('port'));
 });
+//websockets
+var io = require('socket.io').listen(server);
+//clientes
+//JSON para controlar que no se repitan nombres
+var usuariosConectados = {};
+io.sockets.on('connection',function(socket){
+	// console.log('nuevo socket conectado');
+	// socket.on('prueba', function(){
+	// 	console.log('la socket se inicio correctamente');
+	// 	var mensaje = 'Hola socket';
+	// 	io.sockets.emit('nuevoMensaje', mensaje);
+	// });
+	// //Recibimos el nombre
+	socket.on("enviarNombre", function(dato){
+		//Verificamos que ese nombre no existe
+		if (usuariosConectados[dato]) {
+			io.sockets.emit('errorName');
+		} else{
+			//Lo asignamos a la socket y lo agregamos
+			socket.nickname = dato;
+			usuariosConectados[dato] = socket.nickname;
+			console.log(socket.nickname);
+		};
+		data = [dato, usuariosConectados];
+		io.sockets.emit('usuarios', data);
+	});
+	//Recibimos un nuevo mensaje y lo mandamos a todas las sockets
+	socket.on('enviarMensaje', function(mensaje){
+		var data = [socket.nickname, mensaje];
+		io.sockets.emit('nuevoMensaje', data);
+	});
+	//Se dispara cuando una socket se desconecta
+	socket.on('disconnect', function(){
+		//Eliminamos al usuario de los conectados
+		delete usuariosConectados[socket.nickname];
+		//Creamos un arreglo con los usuarios y el que se elimino
+		data = [usuariosConectados, socket.nickname];
+		console.log(data);
+		io.sockets.emit('usuarioDesconectado', data);
+	});
+});
 rutas(app);
+
+
+
+
+
+
